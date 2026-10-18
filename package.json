@@ -1,5 +1,5 @@
 {
-  "name": "farecart-temp",
+  "name": "farecart",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -9,12 +9,17 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@mapbox/mapbox-gl-geocoder": "^5.1.2",
+    "@supabase/supabase-js": "^2.118.0",
+    "cheerio": "^1.2.0",
+    "mapbox-gl": "^3.33.0",
     "next": "16.4.2",
     "react": "19.3.0",
     "react-dom": "19.3.0"
   },
   "devDependencies": {
     "@tailwindcss/turbopack": "^4",
+    "@types/mapbox-gl": "^3.4.1",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",

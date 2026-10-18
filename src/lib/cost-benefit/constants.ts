@@ -1,0 +1,4 @@
+export const MTA_ROUND_TRIP_FARE = 6.00;
+export const WALKING_DISTANCE_METERS = 1609;
+export const WALKING_SPEED_KMH = 4.8;
+export const MAX_TRANSIT_RADIUS_METERS = 8047;
