@@ -9,7 +9,7 @@ export function getSupabase(): SupabaseClient {
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
   if (!url || !key || !url.startsWith('http')) {
-    throw new Error('Missing SUPABASE_URL or SUPABASE_ANON_KEY');
+    throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY');
   }
 
   _client = createClient(url, key);

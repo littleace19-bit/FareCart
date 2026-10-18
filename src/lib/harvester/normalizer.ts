@@ -72,7 +72,7 @@ export function normalizeDeal(raw: RawDealInput): NormalizedDeal {
     unitOfMeasurement: normalizeUnit(raw.unit),
     isFutureDeal: isFutureDeal(raw.dealStartDate),
     dealStartDate: raw.dealStartDate ?? new Date().toISOString().split('T')[0],
-    dealEndDate: raw.dealEndDate ?? '',
+    dealEndDate: raw.dealEndDate ?? null,
     category: raw.category,
     imageUrl: raw.imageUrl,
     source: raw.source,

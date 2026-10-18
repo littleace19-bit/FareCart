@@ -1,5 +1,3 @@
-"use client";
-
 interface HeaderProps {
   cartCount: number;
   onCartClick: () => void;

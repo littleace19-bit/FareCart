@@ -9,7 +9,7 @@ export function getSupabaseAdmin(): SupabaseClient {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!url || !key || !url.startsWith('http')) {
-    throw new Error('Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY');
+    throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY');
   }
 
   _client = createClient(url, key);

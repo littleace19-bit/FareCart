@@ -19,12 +19,29 @@ export default function DealPanel({
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    setLoading(true);
+    let cancelled = false;
+
     fetch(`/api/deals?store_id=${store.id}`)
-      .then((res) => res.json())
-      .then((data) => setDeals(data))
-      .catch(() => setDeals([]))
-      .finally(() => setLoading(false));
+      .then((res) => {
+        if (!res.ok) throw new Error(res.statusText);
+        return res.json();
+      })
+      .then((data) => {
+        if (!cancelled) {
+          setDeals(data);
+          setLoading(false);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setDeals([]);
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [store.id]);
 
   return (

@@ -12,6 +12,11 @@ export async function GET(request: Request) {
     );
   }
 
-  const deals = await getDealsForStore(storeId);
-  return NextResponse.json(deals);
+  try {
+    const deals = await getDealsForStore(storeId);
+    return NextResponse.json(deals);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Internal server error';
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }

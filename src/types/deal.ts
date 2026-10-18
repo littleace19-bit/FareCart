@@ -25,7 +25,7 @@ export interface NormalizedDeal {
   unitOfMeasurement: string;
   isFutureDeal: boolean;
   dealStartDate: string;
-  dealEndDate: string;
+  dealEndDate: string | null;
   category?: string;
   imageUrl?: string;
   source: 'mercato' | 'shophero';

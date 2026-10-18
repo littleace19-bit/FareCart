@@ -2,8 +2,14 @@ import { NextResponse } from 'next/server';
 import { calculateCostBenefit } from '@/lib/cost-benefit/calculator';
 
 export async function POST(request: Request) {
-  const body = await request.json();
-  const { cartSavings, distanceMeters } = body;
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+  }
+
+  const { cartSavings, distanceMeters } = body as Record<string, unknown>;
 
   if (typeof cartSavings !== 'number' || typeof distanceMeters !== 'number') {
     return NextResponse.json(

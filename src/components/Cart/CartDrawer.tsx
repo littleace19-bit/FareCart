@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { CartItem } from "@/types/cart";
 import type { Store } from "@/types/store";
 import type { CostBenefitResult } from "@/types/cost-benefit";
+import { haversineDistance } from "@/lib/geo";
 
 interface CartDrawerProps {
   items: CartItem[];
@@ -22,9 +23,11 @@ export default function CartDrawer({
   onUpdateQuantity,
   onClear,
 }: CartDrawerProps) {
-  const [costBenefit, setCostBenefit] = useState<CostBenefitResult | null>(
-    null
-  );
+  const [costBenefitData, setCostBenefitData] = useState<{
+    storeId: string;
+    result: CostBenefitResult;
+  } | null>(null);
+  const userCoordsRef = useRef<{ lat: number; lng: number } | null>(null);
 
   const totalSavings = items.reduce((sum, item) => {
     const original = item.deal.original_price ?? item.deal.price;
@@ -36,43 +39,64 @@ export default function CartDrawer({
     0
   );
 
+  const costBenefit =
+    selectedStore &&
+    items.length > 0 &&
+    costBenefitData?.storeId === selectedStore.id
+      ? costBenefitData.result
+      : null;
+
   useEffect(() => {
-    if (!selectedStore || items.length === 0) {
-      setCostBenefit(null);
-      return;
-    }
-
     navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        const userLng = pos.coords.longitude;
-        const userLat = pos.coords.latitude;
-
-        const R = 6371e3;
-        const dLat = ((selectedStore.lat - userLat) * Math.PI) / 180;
-        const dLng = ((selectedStore.lng - userLng) * Math.PI) / 180;
-        const a =
-          Math.sin(dLat / 2) ** 2 +
-          Math.cos((userLat * Math.PI) / 180) *
-            Math.cos((selectedStore.lat * Math.PI) / 180) *
-            Math.sin(dLng / 2) ** 2;
-        const distanceMeters = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-        try {
-          const res = await fetch("/api/cost-benefit", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ cartSavings: totalSavings, distanceMeters }),
-          });
-          if (res.ok) setCostBenefit(await res.json());
-        } catch {
-          // cost-benefit unavailable
-        }
+      (pos) => {
+        userCoordsRef.current = {
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+        };
       },
-      () => {
-        // no geolocation — skip cost-benefit
-      }
+      () => {}
     );
-  }, [selectedStore, items, totalSavings]);
+  }, []);
+
+  useEffect(() => {
+    if (!selectedStore || items.length === 0) return;
+
+    const coords = userCoordsRef.current;
+    if (!coords) return;
+
+    const savings = items.reduce((sum, item) => {
+      const original = item.deal.original_price ?? item.deal.price;
+      return sum + (original - item.deal.price) * item.quantity;
+    }, 0);
+
+    const distanceMeters = haversineDistance(
+      coords.lat,
+      coords.lng,
+      selectedStore.lat,
+      selectedStore.lng
+    );
+
+    const storeId = selectedStore.id;
+    let cancelled = false;
+
+    fetch("/api/cost-benefit", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ cartSavings: savings, distanceMeters }),
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error(res.statusText);
+        return res.json();
+      })
+      .then((data) => {
+        if (!cancelled) setCostBenefitData({ storeId, result: data });
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedStore, items]);
 
   return (
     <div className="absolute inset-0 z-20 flex flex-col bg-white dark:bg-zinc-950">

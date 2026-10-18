@@ -31,10 +31,11 @@ export async function upsertDeals(
 ): Promise<void> {
   if (deals.length === 0) return;
 
-  const rows = deals
-    .filter((d) => storeIdMap.has(d.storePlatformId))
-    .map((d) => ({
-      store_id: storeIdMap.get(d.storePlatformId)!,
+  const rows = deals.flatMap((d) => {
+    const storeId = storeIdMap.get(d.storePlatformId);
+    if (!storeId) return [];
+    return [{
+      store_id: storeId,
       external_id: d.externalId,
       source: d.source,
       name: d.name,
@@ -46,7 +47,8 @@ export async function upsertDeals(
       is_future_deal: d.isFutureDeal,
       deal_start_date: d.dealStartDate,
       deal_end_date: d.dealEndDate,
-    }));
+    }];
+  });
 
   const BATCH_SIZE = 500;
   for (let i = 0; i < rows.length; i += BATCH_SIZE) {

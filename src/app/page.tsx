@@ -50,12 +50,10 @@ export default function Home() {
     <div className="flex h-full flex-col">
       <Header cartCount={cartCount} onCartClick={() => setCartOpen(true)} />
       <main className="relative flex-1">
-        <MapContainer
-          onStoreSelect={setSelectedStore}
-          selectedStore={selectedStore}
-        />
+        <MapContainer onStoreSelect={setSelectedStore} />
         {selectedStore && (
           <DealPanel
+            key={selectedStore.id}
             store={selectedStore}
             onClose={() => setSelectedStore(null)}
             onAddToCart={addToCart}

@@ -1,8 +1,3 @@
-export interface CostBenefitInput {
-  cartSavings: number;
-  distanceMeters: number;
-}
-
 export interface CostBenefitResult {
   totalCartSavings: number;
   transitCost: number;
