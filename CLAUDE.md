@@ -8,7 +8,7 @@ Hyperlocal grocery inflation tracker and budget-navigation PWA for the Bronx.
 - **Database**: Supabase (PostgreSQL + PostGIS)
 - **Mapping**: Mapbox GL JS
 - **Styling**: Tailwind CSS v4
-- **Data Ingestion**: Cheerio-based scraping in Next.js API routes
+- **Data Ingestion**: Flipp API (weekly circular deals) via Next.js API routes
 
 ## Project Structure
 

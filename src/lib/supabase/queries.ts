@@ -44,6 +44,8 @@ export async function upsertDeals(
       unit_of_measure: d.unitOfMeasurement,
       category: d.category ?? null,
       image_url: d.imageUrl ?? null,
+      sale_story: d.saleStory ?? null,
+      flyer_id: d.flyerId ?? null,
       is_future_deal: d.isFutureDeal,
       deal_start_date: d.dealStartDate,
       deal_end_date: d.dealEndDate,

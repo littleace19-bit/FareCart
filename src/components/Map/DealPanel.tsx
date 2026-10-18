@@ -95,6 +95,11 @@ export default function DealPanel({
                       </span>
                     )}
                   </div>
+                  {deal.sale_story && (
+                    <p className="mt-0.5 text-xs text-zinc-500">
+                      {deal.sale_story}
+                    </p>
+                  )}
                   {deal.is_future_deal && (
                     <span className="mt-1 inline-block rounded bg-blue-100 px-2 py-0.5 text-xs text-blue-700 dark:bg-blue-900 dark:text-blue-300">
                       Upcoming

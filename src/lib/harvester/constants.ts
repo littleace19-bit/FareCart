@@ -8,3 +8,7 @@ export const BRONX_ZIP_CODES = [
 
 export const RATE_LIMIT_MS = 2000;
 export const MAX_ITEMS_PER_PAGE = 50;
+
+export function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}

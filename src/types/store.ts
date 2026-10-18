@@ -1,7 +1,9 @@
+export type DataSource = 'flipp' | 'mercato' | 'shophero';
+
 export interface Store {
   id: string;
   platform_id: string;
-  source: 'mercato' | 'shophero';
+  source: DataSource;
   name: string;
   address: string;
   city: string;
@@ -31,5 +33,5 @@ export interface RawStore {
   lat: number;
   lng: number;
   chainName?: string;
-  source: 'mercato' | 'shophero';
+  source: DataSource;
 }
