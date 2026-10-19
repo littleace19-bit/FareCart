@@ -5,6 +5,7 @@ const BRONX_CENTER = { lat: 40.8448, lng: -73.8648 };
 
 interface KnownLocation {
   address: string;
+  city?: string;
   lat: number;
   lng: number;
   zip: string;
@@ -25,8 +26,8 @@ const KNOWN_LOCATIONS: Record<number, KnownLocation> = {
   4440: { address: '100 Oak Point Ave', lat: 40.8120, lng: -73.8860, zip: '10474' },
   2063: { address: '528 Jackson Ave', lat: 40.8132, lng: -73.9175, zip: '10455' },
   2150: { address: '2301 Jerome Ave', lat: 40.8574, lng: -73.8988, zip: '10468' },
-  2783: { address: '30-08 30th Ave, Queens', lat: 40.7678, lng: -73.9180, zip: '11102' },
-  2782: { address: '38 W 32nd St, Manhattan', lat: 40.7479, lng: -73.9876, zip: '10001' },
+  2783: { address: '30-08 30th Ave', city: 'Queens', lat: 40.7678, lng: -73.9180, zip: '11102' },
+  2782: { address: '38 W 32nd St', city: 'New York', lat: 40.7479, lng: -73.9876, zip: '10001' },
 };
 
 export function resolveFlippMerchants(flyers: FlippFlyer[]): RawStore[] {
@@ -43,7 +44,7 @@ export function resolveFlippMerchants(flyers: FlippFlyer[]): RawStore[] {
       platformId: String(flyer.merchant_id),
       name: flyer.merchant,
       address: loc?.address ?? 'Bronx, NY',
-      city: 'Bronx',
+      city: loc?.city ?? 'Bronx',
       state: 'NY',
       zipCode: loc?.zip ?? '10451',
       lat: loc?.lat ?? BRONX_CENTER.lat,
