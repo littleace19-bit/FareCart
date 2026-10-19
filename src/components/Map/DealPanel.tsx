@@ -17,6 +17,7 @@ export default function DealPanel({
 }: DealPanelProps) {
   const [deals, setDeals] = useState<Deal[]>([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
 
   useEffect(() => {
@@ -53,9 +54,12 @@ export default function DealPanel({
     return [...cats].sort();
   }, [deals]);
 
-  const filteredDeals = activeCategory
-    ? deals.filter((d) => d.category === activeCategory)
-    : deals;
+  const filteredDeals = deals.filter((d) => {
+    if (activeCategory && d.category !== activeCategory) return false;
+    if (search && !d.name.toLowerCase().includes(search.toLowerCase()))
+      return false;
+    return true;
+  });
 
   return (
     <div className="absolute right-0 top-0 z-10 flex h-full w-full flex-col bg-white shadow-xl dark:bg-zinc-950 sm:w-96">
@@ -76,6 +80,18 @@ export default function DealPanel({
           ✕
         </button>
       </div>
+
+      {!loading && deals.length > 0 && (
+        <div className="border-b border-zinc-200 px-4 py-2 dark:border-zinc-800">
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search this store..."
+            className="w-full rounded-lg border border-zinc-300 bg-zinc-50 px-3 py-1.5 text-sm outline-none focus:border-green-accent focus:ring-1 focus:ring-green-accent dark:border-zinc-700 dark:bg-zinc-900"
+          />
+        </div>
+      )}
 
       <div className="flex-1 overflow-y-auto p-4">
         {loading ? (
