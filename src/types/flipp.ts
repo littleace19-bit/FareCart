@@ -15,6 +15,7 @@ export interface FlippFlyerItem {
   name: string;
   brand: string | null;
   price: string | null;
+  discount: string | null;
   cutout_image_url: string | null;
   valid_from: string;
   valid_to: string;

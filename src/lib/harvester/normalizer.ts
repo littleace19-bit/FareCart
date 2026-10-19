@@ -107,6 +107,7 @@ export function normalizeFlippItems(
         storeId: String(flyer.merchant_id),
         name: item.name,
         price,
+        saleStory: item.discount ?? undefined,
         imageUrl: item.cutout_image_url ?? undefined,
         flyerId: String(flyer.id),
         dealStartDate: item.valid_from?.split('T')[0],

@@ -89,6 +89,7 @@ export default function MapContainer({ onStoreSelect }: MapContainerProps) {
       }
     }
 
+    instance.on("load", fetchStoresInViewport);
     instance.on("moveend", fetchStoresInViewport);
 
     navigator.geolocation.getCurrentPosition(

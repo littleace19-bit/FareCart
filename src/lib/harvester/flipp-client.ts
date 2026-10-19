@@ -10,7 +10,6 @@ const FLIPP_BASE = 'https://backflipp.wishabi.com/flipp';
 
 const GROCERY_CATEGORIES = new Set([
   'Groceries',
-  'Specialty',
 ]);
 
 export async function fetchFlyers(
