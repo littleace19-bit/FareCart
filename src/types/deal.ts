@@ -20,6 +20,19 @@ export interface Deal {
   updated_at: string;
 }
 
+export interface SearchResult {
+  deal_id: string;
+  deal_name: string;
+  price: number;
+  original_price: number | null;
+  unit_of_measure: string | null;
+  sale_story: string | null;
+  store_id: string;
+  store_name: string;
+  chain_name: string | null;
+  address: string;
+}
+
 export interface NormalizedDeal {
   externalId: string;
   storePlatformId: string;

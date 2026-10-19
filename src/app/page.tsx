@@ -10,7 +10,7 @@ import type { Store } from "@/types/store";
 import type { Deal } from "@/types/deal";
 import type { CartItem } from "@/types/cart";
 import InstallPrompt from "@/components/PWA/InstallPrompt";
-import type { SearchResult } from "@/lib/supabase/queries";
+import type { SearchResult } from "@/types/deal";
 
 export default function Home() {
   const [selectedStore, setSelectedStore] = useState<Store | null>(null);

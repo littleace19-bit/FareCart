@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useRef } from "react";
-import type { SearchResult } from "@/lib/supabase/queries";
+import { useState, useRef, useMemo } from "react";
+import type { SearchResult } from "@/types/deal";
 
 interface SearchPanelProps {
   onClose: () => void;
@@ -44,19 +44,17 @@ export default function SearchPanel({ onClose, onAddToCart }: SearchPanelProps) 
     }, 400);
   }
 
-  const grouped = results.reduce<Record<string, SearchResult[]>>(
-    (acc, result) => {
+  const sortedStores = useMemo(() => {
+    const grouped: Record<string, SearchResult[]> = {};
+    for (const result of results) {
       const key = result.store_name;
-      if (!acc[key]) acc[key] = [];
-      acc[key].push(result);
-      return acc;
-    },
-    {}
-  );
-
-  const sortedStores = Object.entries(grouped).sort(
-    ([, a], [, b]) => Math.min(...a.map((r) => r.price)) - Math.min(...b.map((r) => r.price))
-  );
+      if (!grouped[key]) grouped[key] = [];
+      grouped[key].push(result);
+    }
+    return Object.entries(grouped).sort(
+      ([, a], [, b]) => a[0].price - b[0].price
+    );
+  }, [results]);
 
   return (
     <div className="absolute inset-0 z-20 flex flex-col bg-white dark:bg-zinc-950">

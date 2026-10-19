@@ -1,6 +1,6 @@
 import { getSupabaseAdmin } from './server';
 import type { Store, StoreWithDistance, RawStore } from '@/types/store';
-import type { Deal, NormalizedDeal } from '@/types/deal';
+import type { Deal, NormalizedDeal, SearchResult } from '@/types/deal';
 
 export async function upsertStores(stores: RawStore[]): Promise<void> {
   if (stores.length === 0) return;
@@ -169,19 +169,6 @@ export async function getFlippChainNames(): Promise<Set<string>> {
   );
 }
 
-export interface SearchResult {
-  deal_id: string;
-  deal_name: string;
-  price: number;
-  original_price: number | null;
-  unit_of_measure: string | null;
-  sale_story: string | null;
-  store_id: string;
-  store_name: string;
-  chain_name: string | null;
-  address: string;
-}
-
 export async function searchDeals(query: string): Promise<SearchResult[]> {
   const today = new Date().toISOString().split('T')[0];
 
@@ -235,23 +222,6 @@ export async function searchDeals(query: string): Promise<SearchResult[]> {
     }
   }
   return [...seen.values()].sort((a, b) => a.price - b.price);
-}
-
-export async function getCategories(): Promise<string[]> {
-  const { data, error } = await getSupabaseAdmin()
-    .from('grocery_items')
-    .select('category')
-    .not('category', 'is', null)
-    .limit(1000);
-
-  if (error) throw new Error(`getCategories failed: ${error.message}`);
-
-  const unique = new Set(
-    (data ?? [])
-      .map((row) => row.category as string)
-      .filter(Boolean)
-  );
-  return [...unique].sort();
 }
 
 export async function getStoreIdMap(

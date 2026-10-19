@@ -49,16 +49,13 @@ export async function GET(request: Request) {
 
   const storeIdMap = await getStoreIdMap('flipp');
 
-  let totalDeals = 0;
   const allDeals: NormalizedDeal[] = [];
 
   for (const flyer of allFlyers) {
     try {
       await sleep(RATE_LIMIT_MS);
       const items = await fetchFlyerItems(flyer.id);
-      const normalized = normalizeFlippItems(flyer, items);
-      allDeals.push(...normalized);
-      totalDeals += normalized.length;
+      allDeals.push(...normalizeFlippItems(flyer, items));
     } catch (err) {
       errors.push(`items/${flyer.id}: ${err instanceof Error ? err.message : 'unknown'}`);
     }
@@ -95,7 +92,7 @@ export async function GET(request: Request) {
     flyersFound: allFlyers.length,
     storesResolved: stores.length,
     osmStores: osmCount,
-    dealsNormalized: totalDeals,
+    dealsNormalized: allDeals.length,
     errors: errors.length > 0 ? errors : undefined,
   });
 }

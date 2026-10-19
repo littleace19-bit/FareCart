@@ -54,12 +54,14 @@ export default function DealPanel({
     return [...cats].sort();
   }, [deals]);
 
-  const filteredDeals = deals.filter((d) => {
-    if (activeCategory && d.category !== activeCategory) return false;
-    if (search && !d.name.toLowerCase().includes(search.toLowerCase()))
-      return false;
-    return true;
-  });
+  const filteredDeals = useMemo(() => {
+    const term = search.toLowerCase();
+    return deals.filter((d) => {
+      if (activeCategory && d.category !== activeCategory) return false;
+      if (term && !d.name.toLowerCase().includes(term)) return false;
+      return true;
+    });
+  }, [deals, activeCategory, search]);
 
   return (
     <div className="absolute right-0 top-0 z-10 flex h-full w-full flex-col bg-white shadow-xl dark:bg-zinc-950 sm:w-96">
