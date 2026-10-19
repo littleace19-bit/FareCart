@@ -68,9 +68,15 @@ export default function DealPanel({
         {loading ? (
           <p className="text-center text-zinc-500">Loading deals...</p>
         ) : deals.length === 0 ? (
-          <p className="text-center text-zinc-500">
-            No current deals at this store.
-          </p>
+          <div className="space-y-3 text-center">
+            <p className="text-zinc-500">
+              No pricing available for this store.
+            </p>
+            <p className="text-sm text-zinc-400">
+              This store is nearby but doesn&apos;t publish digital circulars.
+              Deals may still be available in-store.
+            </p>
+          </div>
         ) : (
           <div className="space-y-3">
             {deals.map((deal) => (

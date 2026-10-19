@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { fetchFlyers, fetchFlyerItems } from '@/lib/harvester/flipp-client';
 import { resolveFlippMerchants } from '@/lib/harvester/merchant-resolver';
 import { normalizeFlippItems } from '@/lib/harvester/normalizer';
+import { fetchOsmStores } from '@/lib/harvester/osm-client';
+import { matchChainName } from '@/lib/harvester/chain-matcher';
 import { upsertStores, upsertDeals, getStoreIdMap } from '@/lib/supabase/queries';
 import { BRONX_ZIP_CODES, RATE_LIMIT_MS, sleep } from '@/lib/harvester/constants';
 import type { FlippFlyer } from '@/types/flipp';
@@ -68,11 +70,33 @@ export async function GET(request: Request) {
     errors.push(`deal upsert: ${err instanceof Error ? err.message : 'unknown'}`);
   }
 
+  const flippChainNames = stores.map((s) => s.name);
+  let osmCount = 0;
+
+  try {
+    const osmStores = await fetchOsmStores();
+    for (const store of osmStores) {
+      const matched = matchChainName(
+        store.name,
+        store.chainName ?? null,
+        flippChainNames
+      );
+      if (matched) {
+        store.chainName = matched;
+      }
+    }
+    await upsertStores(osmStores);
+    osmCount = osmStores.length;
+  } catch (err) {
+    errors.push(`osm: ${err instanceof Error ? err.message : 'unknown'}`);
+  }
+
   return NextResponse.json({
     timestamp: new Date().toISOString(),
     zipsScanned: sampled.length,
     flyersFound: allFlyers.length,
     storesResolved: stores.length,
+    osmStores: osmCount,
     dealsNormalized: totalDeals,
     errors: errors.length > 0 ? errors : undefined,
   });

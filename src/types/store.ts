@@ -1,4 +1,4 @@
-export type DataSource = 'flipp' | 'mercato' | 'shophero';
+export type DataSource = 'flipp' | 'osm' | 'mercato' | 'shophero';
 
 export interface Store {
   id: string;

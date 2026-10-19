@@ -122,7 +122,37 @@ export async function getDealsForStore(storeId: string): Promise<Deal[]> {
     .order('name');
 
   if (error) throw new Error(`getDealsForStore failed: ${error.message}`);
-  return data as Deal[];
+
+  if (data.length > 0) return data as Deal[];
+
+  const { data: store } = await getSupabaseAdmin()
+    .from('stores')
+    .select('chain_name')
+    .eq('id', storeId)
+    .single();
+
+  if (!store?.chain_name) return [];
+
+  const { data: flippStore } = await getSupabaseAdmin()
+    .from('stores')
+    .select('id')
+    .eq('source', 'flipp')
+    .eq('chain_name', store.chain_name)
+    .limit(1)
+    .single();
+
+  if (!flippStore) return [];
+
+  const { data: chainDeals, error: chainErr } = await getSupabaseAdmin()
+    .from('grocery_items')
+    .select('*')
+    .eq('store_id', flippStore.id)
+    .or(`deal_end_date.gte.${today},deal_end_date.is.null`)
+    .order('category')
+    .order('name');
+
+  if (chainErr) throw new Error(`getDealsForStore chain fallback failed: ${chainErr.message}`);
+  return chainDeals as Deal[];
 }
 
 export async function getStoreIdMap(
