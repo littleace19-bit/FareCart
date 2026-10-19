@@ -14,6 +14,7 @@ export interface Store {
   lng: number;
   chain_name: string | null;
   is_active: boolean;
+  has_deals: boolean;
   created_at: string;
   updated_at: string;
 }

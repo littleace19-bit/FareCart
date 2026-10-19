@@ -32,9 +32,14 @@ export default function MapContainer({ onStoreSelect }: MapContainerProps) {
       el.style.height = "24px";
       el.style.borderRadius = "50%";
       el.style.backgroundColor = "#16a34a";
-      el.style.border = "3px solid white";
+      el.style.border = store.has_deals
+        ? "3px solid white"
+        : "3px solid #eab308";
       el.style.cursor = "pointer";
       el.style.boxShadow = "0 2px 4px rgba(0,0,0,0.3)";
+      if (!store.has_deals) {
+        el.style.opacity = "0.75";
+      }
 
       const marker = new mapboxgl.Marker(el)
         .setLngLat([store.lng, store.lat])
@@ -108,5 +113,23 @@ export default function MapContainer({ onStoreSelect }: MapContainerProps) {
     };
   }, [updateMarkers]);
 
-  return <div ref={mapContainer} className="absolute inset-0" />;
+  return (
+    <>
+      <div ref={mapContainer} className="absolute inset-0" />
+      <div className="absolute bottom-6 left-4 z-10 rounded-lg bg-white/90 px-3 py-2 shadow-md backdrop-blur-sm dark:bg-zinc-900/90">
+        <div className="flex items-center gap-3 text-xs">
+          <div className="flex items-center gap-1.5">
+            <span className="inline-block h-3 w-3 rounded-full border-2 border-white bg-green-600 shadow-sm" />
+            <span className="text-zinc-600 dark:text-zinc-400">Deals</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="inline-block h-3 w-3 rounded-full border-2 border-yellow-400 bg-green-600 opacity-75 shadow-sm" />
+            <span className="text-zinc-600 dark:text-zinc-400">
+              No pricing
+            </span>
+          </div>
+        </div>
+      </div>
+    </>
+  );
 }

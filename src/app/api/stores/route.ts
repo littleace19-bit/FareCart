@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getStoresInViewport } from '@/lib/supabase/queries';
+import { getStoresInViewport, getFlippChainNames } from '@/lib/supabase/queries';
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -17,8 +17,19 @@ export async function GET(request: Request) {
   }
 
   try {
-    const stores = await getStoresInViewport(swLng, swLat, neLng, neLat);
-    return NextResponse.json(stores);
+    const [stores, flippChains] = await Promise.all([
+      getStoresInViewport(swLng, swLat, neLng, neLat),
+      getFlippChainNames(),
+    ]);
+
+    const enriched = stores.map((store) => ({
+      ...store,
+      has_deals:
+        store.source === 'flipp' ||
+        (store.chain_name !== null && flippChains.has(store.chain_name)),
+    }));
+
+    return NextResponse.json(enriched);
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Internal server error';
     return NextResponse.json({ error: message }, { status: 500 });

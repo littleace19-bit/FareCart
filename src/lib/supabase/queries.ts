@@ -155,6 +155,20 @@ export async function getDealsForStore(storeId: string): Promise<Deal[]> {
   return chainDeals as Deal[];
 }
 
+export async function getFlippChainNames(): Promise<Set<string>> {
+  const { data, error } = await getSupabaseAdmin()
+    .from('stores')
+    .select('chain_name')
+    .eq('source', 'flipp')
+    .not('chain_name', 'is', null);
+
+  if (error) throw new Error(`getFlippChainNames failed: ${error.message}`);
+
+  return new Set(
+    (data ?? []).map((row) => row.chain_name as string)
+  );
+}
+
 export async function getStoreIdMap(
   source: string
 ): Promise<Map<string, string>> {
