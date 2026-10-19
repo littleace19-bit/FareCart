@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { Store } from "@/types/store";
 import type { Deal } from "@/types/deal";
 
@@ -17,6 +17,7 @@ export default function DealPanel({
 }: DealPanelProps) {
   const [deals, setDeals] = useState<Deal[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeCategory, setActiveCategory] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -43,6 +44,18 @@ export default function DealPanel({
       cancelled = true;
     };
   }, [store.id]);
+
+  const categories = useMemo(() => {
+    const cats = new Set<string>();
+    for (const deal of deals) {
+      if (deal.category) cats.add(deal.category);
+    }
+    return [...cats].sort();
+  }, [deals]);
+
+  const filteredDeals = activeCategory
+    ? deals.filter((d) => d.category === activeCategory)
+    : deals;
 
   return (
     <div className="absolute right-0 top-0 z-10 flex h-full w-full flex-col bg-white shadow-xl dark:bg-zinc-950 sm:w-96">
@@ -79,7 +92,36 @@ export default function DealPanel({
           </div>
         ) : (
           <div className="space-y-3">
-            {deals.map((deal) => (
+            {categories.length > 1 && (
+              <div className="flex flex-wrap gap-1.5 pb-2">
+                <button
+                  onClick={() => setActiveCategory(null)}
+                  className={`rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
+                    activeCategory === null
+                      ? "bg-green-accent text-white"
+                      : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700"
+                  }`}
+                >
+                  All ({deals.length})
+                </button>
+                {categories.map((cat) => (
+                  <button
+                    key={cat}
+                    onClick={() =>
+                      setActiveCategory(activeCategory === cat ? null : cat)
+                    }
+                    className={`rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
+                      activeCategory === cat
+                        ? "bg-green-accent text-white"
+                        : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700"
+                    }`}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
+            )}
+            {filteredDeals.map((deal) => (
               <div
                 key={deal.id}
                 className="flex items-center justify-between rounded-lg border border-zinc-200 p-3 dark:border-zinc-800"

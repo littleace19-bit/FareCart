@@ -70,23 +70,21 @@ export async function GET(request: Request) {
     errors.push(`deal upsert: ${err instanceof Error ? err.message : 'unknown'}`);
   }
 
-  const flippChainNames = stores.map((s) => s.name);
+  const flippChainNames = stores.map((s) => s.chainName ?? s.name);
   let osmCount = 0;
 
   try {
     const osmStores = await fetchOsmStores();
-    for (const store of osmStores) {
-      const matched = matchChainName(
+    const matched = osmStores.map((store) => {
+      const chain = matchChainName(
         store.name,
         store.chainName ?? null,
         flippChainNames
       );
-      if (matched) {
-        store.chainName = matched;
-      }
-    }
-    await upsertStores(osmStores);
-    osmCount = osmStores.length;
+      return chain ? { ...store, chainName: chain } : store;
+    });
+    await upsertStores(matched);
+    osmCount = matched.length;
   } catch (err) {
     errors.push(`osm: ${err instanceof Error ? err.message : 'unknown'}`);
   }

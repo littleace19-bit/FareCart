@@ -169,6 +169,91 @@ export async function getFlippChainNames(): Promise<Set<string>> {
   );
 }
 
+export interface SearchResult {
+  deal_id: string;
+  deal_name: string;
+  price: number;
+  original_price: number | null;
+  unit_of_measure: string | null;
+  sale_story: string | null;
+  store_id: string;
+  store_name: string;
+  chain_name: string | null;
+  address: string;
+}
+
+export async function searchDeals(query: string): Promise<SearchResult[]> {
+  const today = new Date().toISOString().split('T')[0];
+
+  const { data, error } = await getSupabaseAdmin()
+    .from('grocery_items')
+    .select(`
+      id,
+      name,
+      price,
+      original_price,
+      unit_of_measure,
+      sale_story,
+      store_id,
+      stores!inner (
+        name,
+        chain_name,
+        address,
+        is_active
+      )
+    `)
+    .ilike('name', `%${query}%`)
+    .or(`deal_end_date.gte.${today},deal_end_date.is.null`)
+    .eq('stores.is_active', true)
+    .order('price', { ascending: true })
+    .limit(50);
+
+  if (error) throw new Error(`searchDeals failed: ${error.message}`);
+
+  const mapped = (data ?? []).map((row: Record<string, unknown>) => {
+    const store = row.stores as Record<string, unknown>;
+    return {
+      deal_id: row.id as string,
+      deal_name: row.name as string,
+      price: row.price as number,
+      original_price: row.original_price as number | null,
+      unit_of_measure: row.unit_of_measure as string | null,
+      sale_story: row.sale_story as string | null,
+      store_id: row.store_id as string,
+      store_name: store.name as string,
+      chain_name: store.chain_name as string | null,
+      address: store.address as string,
+    };
+  });
+
+  const seen = new Map<string, SearchResult>();
+  for (const item of mapped) {
+    const key = `${item.store_id}:${item.deal_name.toLowerCase()}`;
+    const existing = seen.get(key);
+    if (!existing || item.price < existing.price) {
+      seen.set(key, item);
+    }
+  }
+  return [...seen.values()].sort((a, b) => a.price - b.price);
+}
+
+export async function getCategories(): Promise<string[]> {
+  const { data, error } = await getSupabaseAdmin()
+    .from('grocery_items')
+    .select('category')
+    .not('category', 'is', null)
+    .limit(1000);
+
+  if (error) throw new Error(`getCategories failed: ${error.message}`);
+
+  const unique = new Set(
+    (data ?? [])
+      .map((row) => row.category as string)
+      .filter(Boolean)
+  );
+  return [...unique].sort();
+}
+
 export async function getStoreIdMap(
   source: string
 ): Promise<Map<string, string>> {
