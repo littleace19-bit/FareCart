@@ -2,21 +2,23 @@ interface HeaderProps {
   cartCount: number;
   onCartClick: () => void;
   onSearchClick: () => void;
+  onLogoClick: () => void;
 }
 
 export default function Header({
   cartCount,
   onCartClick,
   onSearchClick,
+  onLogoClick,
 }: HeaderProps) {
   return (
     <header className="flex h-14 items-center justify-between border-b border-zinc-200 bg-white px-4 dark:border-zinc-800 dark:bg-zinc-950">
-      <div className="flex items-center gap-2">
+      <button onClick={onLogoClick} className="flex items-center gap-2">
         <span className="text-xl font-bold text-green-accent">FareCart</span>
         <span className="hidden text-sm text-zinc-500 sm:inline">
           Bronx Grocery Savings
         </span>
-      </div>
+      </button>
       <div className="flex items-center gap-2">
         <button
           onClick={onSearchClick}

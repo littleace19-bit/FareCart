@@ -12,10 +12,13 @@ export interface CostBenefitResult {
 export interface MatchedItem {
   cartItemName: string;
   cartItemPrice: number;
+  cartItemUnit: string | null;
   matchedName: string;
   matchedPrice: number;
+  matchedUnit: string | null;
   quantity: number;
   itemSavings: number;
+  unitMismatch: boolean;
 }
 
 export interface StoreAlternative {

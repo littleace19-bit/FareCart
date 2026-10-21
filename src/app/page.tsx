@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import MapContainer from "@/components/Map/MapContainer";
 import DealPanel from "@/components/Map/DealPanel";
 import CartDrawer from "@/components/Cart/CartDrawer";
@@ -14,23 +14,28 @@ import type { StoreAlternative } from "@/types/cost-benefit";
 import InstallPrompt from "@/components/PWA/InstallPrompt";
 import type { SearchResult } from "@/types/deal";
 
-function loadCart(): CartItem[] {
+type CartMap = Record<string, CartItem[]>;
+
+function loadCarts(): CartMap {
   try {
-    const saved = localStorage.getItem("farecart-cart");
+    const saved = localStorage.getItem("farecart-carts");
     if (saved) return JSON.parse(saved);
   } catch {}
-  return [];
+  return {};
 }
 
 export default function Home() {
   const [selectedStore, setSelectedStore] = useState<Store | null>(null);
-  const [cart, setCart] = useState<CartItem[]>(loadCart);
+  const [allCarts, setAllCarts] = useState<CartMap>(loadCarts);
   const [cartOpen, setCartOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [compareOpen, setCompareOpen] = useState(false);
   const [alternatives, setAlternatives] = useState<StoreAlternative[]>([]);
   const [compareLoading, setCompareLoading] = useState(false);
+  const [viewingFromCompare, setViewingFromCompare] = useState(false);
   const userCoordsRef = useRef<{ lat: number; lng: number } | null>(null);
+
+  const cart = selectedStore ? (allCarts[selectedStore.id] ?? []) : [];
 
   useEffect(() => {
     navigator.geolocation.getCurrentPosition(
@@ -46,12 +51,20 @@ export default function Home() {
 
   useEffect(() => {
     try {
-      localStorage.setItem("farecart-cart", JSON.stringify(cart));
+      localStorage.setItem("farecart-carts", JSON.stringify(allCarts));
     } catch {}
-  }, [cart]);
+  }, [allCarts]);
+
+  function updateStoreCart(storeId: string, updater: (prev: CartItem[]) => CartItem[]) {
+    setAllCarts((prev) => ({
+      ...prev,
+      [storeId]: updater(prev[storeId] ?? []),
+    }));
+  }
 
   function addToCart(deal: Deal) {
-    setCart((prev) => {
+    const storeId = selectedStore?.id ?? deal.store_id;
+    updateStoreCart(storeId, (prev) => {
       const existing = prev.find((item) => item.deal.id === deal.id);
       if (existing) {
         return prev.map((item) =>
@@ -65,7 +78,10 @@ export default function Home() {
   }
 
   function removeFromCart(dealId: string) {
-    setCart((prev) => prev.filter((item) => item.deal.id !== dealId));
+    if (!selectedStore) return;
+    updateStoreCart(selectedStore.id, (prev) =>
+      prev.filter((item) => item.deal.id !== dealId)
+    );
   }
 
   function updateQuantity(dealId: string, quantity: number) {
@@ -73,7 +89,8 @@ export default function Home() {
       removeFromCart(dealId);
       return;
     }
-    setCart((prev) =>
+    if (!selectedStore) return;
+    updateStoreCart(selectedStore.id, (prev) =>
       prev.map((item) =>
         item.deal.id === dealId ? { ...item, quantity } : item
       )
@@ -116,7 +133,8 @@ export default function Home() {
             name: item.deal.name,
             price: item.deal.price,
             quantity: item.quantity,
-            storeId: item.deal.store_id,
+            storeId: selectedStore?.id ?? item.deal.store_id,
+            unitOfMeasure: item.deal.unit_of_measure,
           })),
           userLat: coords?.lat,
           userLng: coords?.lng,
@@ -130,6 +148,24 @@ export default function Home() {
     setCompareLoading(false);
   }
 
+  async function viewStoreFromComparison(storeId: string) {
+    const res = await fetch(`/api/stores?id=${storeId}`);
+    if (res.ok) {
+      const store: Store = await res.json();
+      setSelectedStore(store);
+      setCompareOpen(false);
+      setViewingFromCompare(true);
+    }
+  }
+
+  const goHome = useCallback(() => {
+    setSelectedStore(null);
+    setCartOpen(false);
+    setSearchOpen(false);
+    setCompareOpen(false);
+    setViewingFromCompare(false);
+  }, []);
+
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
   return (
@@ -138,6 +174,7 @@ export default function Home() {
         cartCount={cartCount}
         onCartClick={() => setCartOpen(true)}
         onSearchClick={() => setSearchOpen(true)}
+        onLogoClick={goHome}
       />
       <main className="relative flex-1">
         <MapContainer onStoreSelect={setSelectedStore} />
@@ -145,8 +182,15 @@ export default function Home() {
           <DealPanel
             key={selectedStore.id}
             store={selectedStore}
-            onClose={() => setSelectedStore(null)}
+            onClose={() => {
+              setSelectedStore(null);
+              if (viewingFromCompare) {
+                setViewingFromCompare(false);
+                setCompareOpen(true);
+              }
+            }}
             onAddToCart={addToCart}
+            backLabel={viewingFromCompare ? "Back to comparison" : undefined}
           />
         )}
         {searchOpen && (
@@ -162,7 +206,15 @@ export default function Home() {
             onClose={() => setCartOpen(false)}
             onRemove={removeFromCart}
             onUpdateQuantity={updateQuantity}
-            onClear={() => setCart([])}
+            onClear={() => {
+              if (selectedStore) {
+                setAllCarts((prev) => {
+                  const next = { ...prev };
+                  delete next[selectedStore.id];
+                  return next;
+                });
+              }
+            }}
             onCompare={runComparison}
           />
         )}
@@ -175,6 +227,7 @@ export default function Home() {
             )}
             loading={compareLoading}
             onClose={() => setCompareOpen(false)}
+            onViewStore={viewStoreFromComparison}
           />
         )}
       </main>

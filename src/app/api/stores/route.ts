@@ -1,8 +1,23 @@
 import { NextResponse } from 'next/server';
 import { getStoresInViewport, getFlippChainNames } from '@/lib/supabase/queries';
+import { getSupabaseAdmin } from '@/lib/supabase/server';
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
+
+  const storeId = searchParams.get('id');
+  if (storeId) {
+    const { data, error } = await getSupabaseAdmin()
+      .from('stores')
+      .select('*')
+      .eq('id', storeId)
+      .single();
+
+    if (error || !data) {
+      return NextResponse.json({ error: 'Store not found' }, { status: 404 });
+    }
+    return NextResponse.json(data);
+  }
 
   const swLng = parseFloat(searchParams.get('sw_lng') ?? '');
   const swLat = parseFloat(searchParams.get('sw_lat') ?? '');

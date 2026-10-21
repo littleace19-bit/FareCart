@@ -8,12 +8,14 @@ interface DealPanelProps {
   store: Store;
   onClose: () => void;
   onAddToCart: (deal: Deal) => void;
+  backLabel?: string;
 }
 
 export default function DealPanel({
   store,
   onClose,
   onAddToCart,
+  backLabel,
 }: DealPanelProps) {
   const [deals, setDeals] = useState<Deal[]>([]);
   const [loading, setLoading] = useState(true);
@@ -67,6 +69,14 @@ export default function DealPanel({
     <div className="absolute right-0 top-0 z-10 flex h-full w-full flex-col bg-white shadow-xl dark:bg-zinc-950 sm:w-96">
       <div className="flex items-center justify-between border-b border-zinc-200 p-4 dark:border-zinc-800">
         <div>
+          {backLabel && (
+            <button
+              onClick={onClose}
+              className="mb-1 flex items-center gap-1 text-xs font-medium text-green-accent hover:underline"
+            >
+              <span>&larr;</span> {backLabel}
+            </button>
+          )}
           <h2 className="text-lg font-semibold">{store.name}</h2>
           <p className="text-sm text-zinc-500">{store.address}</p>
           {store.chain_name && (

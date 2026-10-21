@@ -9,13 +9,34 @@ interface CartItem {
   price: number;
   quantity: number;
   storeId: string;
+  unitOfMeasure: string | null;
 }
 
 const NOISE_WORDS = new Set([
   'oz', 'lb', 'lbs', 'ct', 'pk', 'gal', 'ml', 'fl', 'qt', 'pt',
   'each', 'bag', 'box', 'can', 'jar', 'btl', 'roll', 'rolls',
   'count', 'piece', 'pieces', 'pack', 'package', 'of', 'the', 'and',
-  'or', 'in', 'with', 'for', 'to', 'a', 'an',
+  'or', 'in', 'with', 'for', 'to', 'a', 'an', 'fresh', 'frozen',
+  'organic', 'natural', 'premium', 'value', 'great', 'best', 'select',
+  'choice', 'family', 'size', 'large', 'small', 'medium', 'jumbo',
+  'original', 'classic', 'regular', 'lite', 'light', 'free', 'low',
+]);
+
+const BRAND_WORDS = new Set([
+  'perdue', 'tyson', 'foster', 'farms', 'barilla', 'ronzoni', 'mueller',
+  'delmonte', 'del', 'monte', 'goya', 'iberia', 'la', 'fe', 'badia',
+  'kraft', 'heinz', 'hunts', 'ragu', 'prego', 'campbells', 'progresso',
+  'bumble', 'bee', 'starkist', 'chicken', 'sea', 'dole', 'chiquita',
+  'tropicana', 'minute', 'maid', 'simply', 'hood', 'farmland', 'hatfield',
+  'oscar', 'mayer', 'boars', 'head', 'hebrew', 'national', 'ballpark',
+  'kelloggs', 'general', 'mills', 'post', 'quaker', 'cheerios',
+  'pepsi', 'coca', 'cola', 'coke', 'nestle', 'nabisco', 'frito', 'lay',
+  'scotts', 'bounty', 'charmin', 'angel', 'soft', 'cottonelle',
+  'tide', 'gain', 'downy', 'clorox', 'lysol', 'ajax', 'palmolive',
+  'colgate', 'oral', 'dawn', 'dial', 'irish', 'spring', 'dove',
+  'store', 'brand', 'generic', 'stop', 'shop', 'key', 'food',
+  'ctown', 'associated', 'foodtown', 'bravo', 'compare', 'essential',
+  'everyday', 'always', 'save', 'smart', 'way',
 ]);
 
 function extractKeywords(name: string): string[] {
@@ -23,7 +44,19 @@ function extractKeywords(name: string): string[] {
     .toLowerCase()
     .replace(/[^a-z\s]/g, '')
     .split(/\s+/)
-    .filter(w => w.length > 1 && !NOISE_WORDS.has(w));
+    .filter(w => w.length > 1 && !NOISE_WORDS.has(w) && !BRAND_WORDS.has(w));
+}
+
+function scoreMatch(keywords: string[], candidateName: string): number {
+  const candidate = candidateName.toLowerCase();
+  let hits = 0;
+  for (const kw of keywords) {
+    const stem = kw.endsWith('s') ? kw.slice(0, -1) : kw;
+    if (candidate.includes(kw) || candidate.includes(stem) || candidate.includes(kw + 's')) {
+      hits++;
+    }
+  }
+  return keywords.length > 0 ? hits / keywords.length : 0;
 }
 
 async function findMatchesForItem(item: CartItem) {
@@ -31,35 +64,38 @@ async function findMatchesForItem(item: CartItem) {
   if (keywords.length === 0) return [];
 
   const today = new Date().toISOString().split('T')[0];
-  const searchTerms = keywords.slice(0, 2);
+  const searchTerms = keywords.slice(0, 3);
 
-  let query = getSupabaseAdmin()
+  const orFilter = searchTerms.map(t => `name.ilike.%${t}%`).join(',');
+
+  const { data } = await getSupabaseAdmin()
     .from('grocery_items')
     .select(`
-      id, name, price, store_id,
+      id, name, price, unit_of_measure, store_id,
       stores!inner (name, chain_name, address, lat, lng, is_active)
     `)
     .neq('store_id', item.storeId)
     .eq('stores.is_active', true)
     .or(`deal_end_date.gte.${today},deal_end_date.is.null`)
+    .or(orFilter)
     .order('price', { ascending: true })
-    .limit(100);
+    .limit(200);
 
-  for (const term of searchTerms) {
-    query = query.filter('name', 'ilike', `%${term}%`);
-  }
+  const rows = (data ?? []) as (Record<string, unknown>)[];
 
-  const { data } = await query;
-
-  const perStore = new Map<string, Record<string, unknown>>();
-  for (const row of (data ?? []) as Record<string, unknown>[]) {
+  const perStore = new Map<string, { row: Record<string, unknown>; score: number }>();
+  for (const row of rows) {
     const storeId = row.store_id as string;
-    if (!perStore.has(storeId)) {
-      perStore.set(storeId, row);
+    const score = scoreMatch(keywords, row.name as string);
+    const minScore = keywords.length <= 2 ? 1.0 : 0.6;
+    if (score < minScore) continue;
+    const existing = perStore.get(storeId);
+    if (!existing || score > existing.score || (score === existing.score && (row.price as number) < (existing.row.price as number))) {
+      perStore.set(storeId, { row, score });
     }
   }
 
-  return [...perStore.values()];
+  return [...perStore.values()].map(v => v.row);
 }
 
 export async function POST(request: Request) {
@@ -113,14 +149,20 @@ export async function POST(request: Request) {
 
       const storeAlt = stores.get(storeId)!;
       const matchedPrice = match.price as number;
+      const cartUnit = cartItem.unitOfMeasure?.toLowerCase().trim() ?? null;
+      const matchUnit = ((match.unit_of_measure as string | null) ?? null)?.toLowerCase().trim() ?? null;
+      const unitMismatch = cartUnit !== null && matchUnit !== null && cartUnit !== matchUnit;
 
       storeAlt.matched.push({
         cartItemName: cartItem.name,
         cartItemPrice: cartItem.price,
+        cartItemUnit: cartUnit,
         matchedName: match.name as string,
         matchedPrice,
+        matchedUnit: matchUnit,
         quantity: cartItem.quantity,
         itemSavings: Math.round((cartItem.price - matchedPrice) * cartItem.quantity * 100) / 100,
+        unitMismatch,
       });
     }
   }
