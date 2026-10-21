@@ -13,6 +13,7 @@ interface CartDrawerProps {
   onRemove: (dealId: string) => void;
   onUpdateQuantity: (dealId: string, quantity: number) => void;
   onClear: () => void;
+  onCompare: () => void;
 }
 
 export default function CartDrawer({
@@ -22,6 +23,7 @@ export default function CartDrawer({
   onRemove,
   onUpdateQuantity,
   onClear,
+  onCompare,
 }: CartDrawerProps) {
   const [costBenefitData, setCostBenefitData] = useState<{
     storeId: string;
@@ -193,6 +195,13 @@ export default function CartDrawer({
               ${totalSavings.toFixed(2)}
             </span>
           </div>
+
+          <button
+            onClick={onCompare}
+            className="mt-2 w-full rounded-lg border border-green-accent bg-green-50 py-2.5 text-sm font-semibold text-green-accent transition-colors hover:bg-green-100 dark:bg-green-950 dark:hover:bg-green-900"
+          >
+            Compare at other stores
+          </button>
 
           {costBenefit && (
             <div

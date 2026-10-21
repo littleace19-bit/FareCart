@@ -1,22 +1,54 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import MapContainer from "@/components/Map/MapContainer";
 import DealPanel from "@/components/Map/DealPanel";
 import CartDrawer from "@/components/Cart/CartDrawer";
+import ComparisonPanel from "@/components/Cart/ComparisonPanel";
 import SearchPanel from "@/components/Search/SearchPanel";
 import Header from "@/components/Layout/Header";
 import type { Store } from "@/types/store";
 import type { Deal } from "@/types/deal";
 import type { CartItem } from "@/types/cart";
+import type { StoreAlternative } from "@/types/cost-benefit";
 import InstallPrompt from "@/components/PWA/InstallPrompt";
 import type { SearchResult } from "@/types/deal";
 
+function loadCart(): CartItem[] {
+  try {
+    const saved = localStorage.getItem("farecart-cart");
+    if (saved) return JSON.parse(saved);
+  } catch {}
+  return [];
+}
+
 export default function Home() {
   const [selectedStore, setSelectedStore] = useState<Store | null>(null);
-  const [cart, setCart] = useState<CartItem[]>([]);
+  const [cart, setCart] = useState<CartItem[]>(loadCart);
   const [cartOpen, setCartOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [compareOpen, setCompareOpen] = useState(false);
+  const [alternatives, setAlternatives] = useState<StoreAlternative[]>([]);
+  const [compareLoading, setCompareLoading] = useState(false);
+  const userCoordsRef = useRef<{ lat: number; lng: number } | null>(null);
+
+  useEffect(() => {
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        userCoordsRef.current = {
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+        };
+      },
+      () => {}
+    );
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("farecart-cart", JSON.stringify(cart));
+    } catch {}
+  }, [cart]);
 
   function addToCart(deal: Deal) {
     setCart((prev) => {
@@ -71,6 +103,33 @@ export default function Home() {
     addToCart(deal);
   }
 
+  async function runComparison() {
+    setCompareOpen(true);
+    setCompareLoading(true);
+    try {
+      const coords = userCoordsRef.current;
+      const res = await fetch("/api/compare", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          items: cart.map((item) => ({
+            name: item.deal.name,
+            price: item.deal.price,
+            quantity: item.quantity,
+            storeId: item.deal.store_id,
+          })),
+          userLat: coords?.lat,
+          userLng: coords?.lng,
+        }),
+      });
+      if (res.ok) {
+        const data: StoreAlternative[] = await res.json();
+        setAlternatives(data);
+      }
+    } catch {}
+    setCompareLoading(false);
+  }
+
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
   return (
@@ -104,6 +163,18 @@ export default function Home() {
             onRemove={removeFromCart}
             onUpdateQuantity={updateQuantity}
             onClear={() => setCart([])}
+            onCompare={runComparison}
+          />
+        )}
+        {compareOpen && (
+          <ComparisonPanel
+            alternatives={alternatives}
+            cartTotal={cart.reduce(
+              (sum, item) => sum + item.deal.price * item.quantity,
+              0
+            )}
+            loading={compareLoading}
+            onClose={() => setCompareOpen(false)}
           />
         )}
       </main>
