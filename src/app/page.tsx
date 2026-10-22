@@ -12,6 +12,7 @@ import type { Deal } from "@/types/deal";
 import type { CartItem } from "@/types/cart";
 import type { StoreAlternative } from "@/types/cost-benefit";
 import InstallPrompt from "@/components/PWA/InstallPrompt";
+import SavingsBanner from "@/components/Stats/SavingsBanner";
 import type { SearchResult } from "@/types/deal";
 
 type CartMap = Record<string, CartItem[]>;
@@ -33,9 +34,25 @@ export default function Home() {
   const [alternatives, setAlternatives] = useState<StoreAlternative[]>([]);
   const [compareLoading, setCompareLoading] = useState(false);
   const [viewingFromCompare, setViewingFromCompare] = useState(false);
+  const [stats, setStats] = useState<{
+    totalSaved: number;
+    tripCount: number;
+    averageSavings: number;
+  } | null>(null);
   const userCoordsRef = useRef<{ lat: number; lng: number } | null>(null);
 
   const cart = selectedStore ? (allCarts[selectedStore.id] ?? []) : [];
+
+  async function fetchStats() {
+    try {
+      const res = await fetch("/api/stats");
+      if (res.ok) setStats(await res.json());
+    } catch {}
+  }
+
+  useEffect(() => {
+    fetchStats();
+  }, []);
 
   useEffect(() => {
     navigator.geolocation.getCurrentPosition(
@@ -158,6 +175,43 @@ export default function Home() {
     }
   }
 
+  async function logSavingsDecision(store: StoreAlternative) {
+    try {
+      let deviceId: string | null = null;
+      try {
+        deviceId = localStorage.getItem("farecart-device-id");
+        if (!deviceId) {
+          deviceId = crypto.randomUUID();
+          localStorage.setItem("farecart-device-id", deviceId);
+        }
+      } catch {}
+
+      await fetch("/api/stats", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          originalStoreId: selectedStore?.id ?? null,
+          originalStoreName: selectedStore?.name ?? "Unknown",
+          chosenStoreId: store.storeId,
+          chosenStoreName: store.storeName,
+          originalTotal: store.currentTotal,
+          alternativeTotal: store.alternativeTotal,
+          priceSavings: store.savings,
+          netSavings: store.costBenefit?.netSavings ?? null,
+          transitCost: store.costBenefit?.transitCost ?? null,
+          isWalkable: store.costBenefit?.isWalkable ?? null,
+          distanceMeters: store.distanceMeters,
+          itemCount: store.matched.length + store.missingItems.length,
+          itemsMatched: store.matched.length,
+          itemsMissing: store.missingItems.length,
+          recommendation: store.costBenefit?.recommendation ?? null,
+          deviceId,
+        }),
+      });
+      fetchStats();
+    } catch {}
+  }
+
   const goHome = useCallback(() => {
     setSelectedStore(null);
     setCartOpen(false);
@@ -176,6 +230,13 @@ export default function Home() {
         onSearchClick={() => setSearchOpen(true)}
         onLogoClick={goHome}
       />
+      {stats && stats.tripCount > 0 && !selectedStore && !searchOpen && !cartOpen && !compareOpen && (
+        <SavingsBanner
+          totalSaved={stats.totalSaved}
+          tripCount={stats.tripCount}
+          averageSavings={stats.averageSavings}
+        />
+      )}
       <main className="relative flex-1">
         <MapContainer onStoreSelect={setSelectedStore} />
         {selectedStore && (
@@ -228,6 +289,7 @@ export default function Home() {
             loading={compareLoading}
             onClose={() => setCompareOpen(false)}
             onViewStore={viewStoreFromComparison}
+            onChooseStore={logSavingsDecision}
           />
         )}
       </main>

@@ -9,6 +9,7 @@ interface ComparisonPanelProps {
   loading: boolean;
   onClose: () => void;
   onViewStore: (storeId: string) => void;
+  onChooseStore?: (store: StoreAlternative) => void;
 }
 
 function formatDistance(meters: number): string {
@@ -29,6 +30,7 @@ export default function ComparisonPanel({
   loading,
   onClose,
   onViewStore,
+  onChooseStore,
 }: ComparisonPanelProps) {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [chosenStore, setChosenStore] = useState<StoreAlternative | null>(null);
@@ -372,7 +374,10 @@ export default function ComparisonPanel({
                     </button>
                     <span className="text-zinc-300 dark:text-zinc-700">|</span>
                     <button
-                      onClick={() => setChosenStore(store)}
+                      onClick={() => {
+                        setChosenStore(store);
+                        onChooseStore?.(store);
+                      }}
                       className="text-xs font-medium text-green-accent hover:underline"
                     >
                       Shop here instead
