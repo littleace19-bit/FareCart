@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import type { StoreAlternative } from "@/types/cost-benefit";
+import { TRANSPORT_MODES, type TransportMode } from "@/lib/cost-benefit/constants";
+import { calculateCostBenefit } from "@/lib/cost-benefit/calculator";
 
 interface ComparisonPanelProps {
   alternatives: StoreAlternative[];
@@ -17,11 +19,12 @@ function formatDistance(meters: number): string {
   return miles < 0.1 ? `${Math.round(meters)}m` : `${miles.toFixed(1)} mi`;
 }
 
-function formatWalkingTime(minutes: number): string {
-  if (minutes < 60) return `${minutes} min walk`;
+function formatTime(minutes: number): string {
+  if (minutes < 1) return "< 1 min";
+  if (minutes < 60) return `${minutes} min`;
   const hrs = Math.floor(minutes / 60);
   const mins = minutes % 60;
-  return mins > 0 ? `${hrs}h ${mins}m walk` : `${hrs}h walk`;
+  return mins > 0 ? `${hrs}h ${mins}m` : `${hrs}h`;
 }
 
 export default function ComparisonPanel({
@@ -34,9 +37,26 @@ export default function ComparisonPanel({
 }: ComparisonPanelProps) {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [chosenStore, setChosenStore] = useState<StoreAlternative | null>(null);
+  const [transportMode, setTransportMode] = useState<TransportMode>("walk");
+  const [sortBy, setSortBy] = useState<"distance" | "savings">("distance");
+
+  const sortedAlternatives = useMemo(() => {
+    const list = [...alternatives];
+    if (sortBy === "distance") {
+      list.sort((a, b) => (a.distanceMeters ?? Infinity) - (b.distanceMeters ?? Infinity));
+    } else {
+      list.sort((a, b) => b.savings - a.savings);
+    }
+    return list;
+  }, [alternatives, sortBy]);
+
+  const liveCb = useMemo(() => {
+    if (!chosenStore || chosenStore.distanceMeters == null) return null;
+    return calculateCostBenefit(chosenStore.savings, chosenStore.distanceMeters, transportMode);
+  }, [chosenStore, transportMode]);
 
   if (chosenStore) {
-    const cb = chosenStore.costBenefit;
+    const cb = liveCb;
     const netSavings = cb?.netSavings ?? chosenStore.savings;
     const netPositive = cb?.isNetPositive ?? chosenStore.savings > 0;
 
@@ -84,6 +104,22 @@ export default function ComparisonPanel({
           {chosenStore.distanceMeters != null && (
             <div className="mt-4 rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
               <h4 className="mb-2 text-sm font-semibold">Getting there</h4>
+              <div className="flex gap-1.5 mb-3">
+                {TRANSPORT_MODES.map((mode) => (
+                  <button
+                    key={mode.id}
+                    onClick={() => setTransportMode(mode.id)}
+                    className={`flex flex-1 flex-col items-center gap-0.5 rounded-lg py-2 text-xs transition-colors ${
+                      transportMode === mode.id
+                        ? "bg-green-accent text-white"
+                        : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700"
+                    }`}
+                  >
+                    <span className="text-base">{mode.icon}</span>
+                    <span>{mode.label}</span>
+                  </button>
+                ))}
+              </div>
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-zinc-500">Distance</span>
@@ -92,16 +128,12 @@ export default function ComparisonPanel({
                 {cb && (
                   <>
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-zinc-500">Travel</span>
-                      <span className="font-medium">
-                        {cb.isWalkable
-                          ? formatWalkingTime(cb.walkingTimeMinutes)
-                          : `MTA — $${cb.transitCost.toFixed(2)} round trip`}
-                      </span>
+                      <span className="text-zinc-500">Travel time</span>
+                      <span className="font-medium">{formatTime(cb.travelTimeMinutes)}</span>
                     </div>
-                    {!cb.isWalkable && (
+                    {cb.transitCost > 0 && (
                       <div className="flex items-center justify-between text-sm">
-                        <span className="text-zinc-500">Transit cost</span>
+                        <span className="text-zinc-500">Fare (round trip)</span>
                         <span className="font-medium text-red-accent">-${cb.transitCost.toFixed(2)}</span>
                       </div>
                     )}
@@ -119,17 +151,15 @@ export default function ComparisonPanel({
               {netSavings >= 0 ? "+" : ""}${netSavings.toFixed(2)}
             </p>
             <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-              {cb?.recommendation === "walk"
-                ? "Walk there and pocket the savings!"
-                : cb?.recommendation === "transit-positive"
-                  ? "Worth the trip — you come out ahead even after the fare."
-                  : cb?.recommendation === "transit-negative"
-                    ? "You'd spend more getting there than you'd save."
-                    : cb?.recommendation === "not-worth-it"
-                      ? "Not worth the trip — stick with your current store."
-                      : netPositive
-                        ? "You save by shopping here instead."
-                        : "This store is more expensive for your cart."}
+              {!cb
+                ? netPositive
+                  ? "You save by shopping here instead."
+                  : "This store is more expensive for your cart."
+                : cb.transitCost === 0
+                  ? "No fare — pocket all the savings!"
+                  : cb.isNetPositive
+                    ? "Worth the trip — you come out ahead even after the fare."
+                    : "The fare eats into your savings — try walking or biking."}
             </p>
           </div>
 
@@ -251,12 +281,36 @@ export default function ComparisonPanel({
 
         {!loading && alternatives.length > 0 && (
           <div className="space-y-3">
-            <p className="text-xs text-zinc-500">
-              {alternatives.length} store{alternatives.length !== 1 ? "s" : ""}{" "}
-              with matching items, ranked by savings
-            </p>
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-zinc-500">
+                {alternatives.length} store{alternatives.length !== 1 ? "s" : ""}{" "}
+                found
+              </p>
+              <div className="flex rounded-lg border border-zinc-200 dark:border-zinc-700">
+                <button
+                  onClick={() => setSortBy("distance")}
+                  className={`px-2.5 py-1 text-xs font-medium transition-colors ${
+                    sortBy === "distance"
+                      ? "bg-green-accent text-white"
+                      : "text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                  } rounded-l-lg`}
+                >
+                  Nearest
+                </button>
+                <button
+                  onClick={() => setSortBy("savings")}
+                  className={`px-2.5 py-1 text-xs font-medium transition-colors ${
+                    sortBy === "savings"
+                      ? "bg-green-accent text-white"
+                      : "text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                  } rounded-r-lg`}
+                >
+                  Most savings
+                </button>
+              </div>
+            </div>
 
-            {alternatives.map((store) => {
+            {sortedAlternatives.map((store) => {
               const isExpanded = expanded === store.storeId;
               const hasSavings = store.savings > 0;
               const netPositive = store.costBenefit?.isNetPositive ?? hasSavings;
@@ -317,51 +371,24 @@ export default function ComparisonPanel({
                     </div>
                   </div>
 
-                  {store.costBenefit && (
-                    <div
-                      className={`mt-3 ml-5 rounded-lg p-3 ${
-                        netPositive
-                          ? "bg-green-50 dark:bg-green-950"
-                          : "bg-zinc-50 dark:bg-zinc-900"
+                  <div
+                    className={`mt-3 ml-5 flex items-center justify-between rounded-lg p-3 ${
+                      hasSavings
+                        ? "bg-green-50 dark:bg-green-950"
+                        : "bg-zinc-50 dark:bg-zinc-900"
+                    }`}
+                  >
+                    <span className="text-sm text-zinc-600 dark:text-zinc-400">
+                      Price savings
+                    </span>
+                    <span
+                      className={`text-lg font-bold ${
+                        hasSavings ? "text-green-accent" : "text-red-accent"
                       }`}
                     >
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm">
-                          {store.costBenefit.isWalkable
-                            ? `Walk ${store.costBenefit.walkingTimeMinutes} min`
-                            : `$${store.costBenefit.transitCost.toFixed(2)} MTA fare`}
-                        </span>
-                        <span
-                          className={`text-lg font-bold ${
-                            netPositive ? "text-green-accent" : "text-red-accent"
-                          }`}
-                        >
-                          {store.costBenefit.netSavings >= 0 ? "+" : ""}$
-                          {store.costBenefit.netSavings.toFixed(2)}
-                        </span>
-                      </div>
-                      <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">
-                        {store.costBenefit.recommendation === "walk"
-                          ? "Walk to save — no transit cost!"
-                          : store.costBenefit.recommendation === "transit-positive"
-                            ? "Worth the trip — you save even after the fare."
-                            : store.costBenefit.recommendation === "transit-negative"
-                              ? `Close to breaking even. Need ~$${store.costBenefit.breakEvenSavingsNeeded.toFixed(2)} more in savings.`
-                              : "Not worth the trip — shop closer to home."}
-                      </p>
-                    </div>
-                  )}
-
-                  {!store.costBenefit && hasSavings && (
-                    <div className="mt-3 ml-5 flex items-center justify-between rounded-lg bg-green-50 p-3 dark:bg-green-950">
-                      <span className="text-sm text-zinc-600 dark:text-zinc-400">
-                        Price savings
-                      </span>
-                      <span className="text-lg font-bold text-green-accent">
-                        +${store.savings.toFixed(2)}
-                      </span>
-                    </div>
-                  )}
+                      {store.savings >= 0 ? "+" : ""}${store.savings.toFixed(2)}
+                    </span>
+                  </div>
 
                   <div className="mt-3 ml-5 flex gap-2">
                     <button

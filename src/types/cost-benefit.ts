@@ -5,6 +5,8 @@ export interface CostBenefitResult {
   isNetPositive: boolean;
   isWalkable: boolean;
   walkingTimeMinutes: number;
+  travelTimeMinutes: number;
+  travelMode: string;
   breakEvenSavingsNeeded: number;
   recommendation: 'walk' | 'transit-positive' | 'transit-negative' | 'not-worth-it';
 }

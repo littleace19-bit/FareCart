@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback, useState } from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { MAPBOX_CONFIG } from "@/lib/mapbox/config";
@@ -8,13 +8,17 @@ import type { Store } from "@/types/store";
 
 interface MapContainerProps {
   onStoreSelect: (store: Store) => void;
+  userLocation?: { lat: number; lng: number } | null;
 }
 
-export default function MapContainer({ onStoreSelect }: MapContainerProps) {
+export default function MapContainer({ onStoreSelect, userLocation }: MapContainerProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
   const markersRef = useRef<mapboxgl.Marker[]>([]);
+  const allStoresRef = useRef<Store[]>([]);
+  const hideNoPricingRef = useRef(false);
   const onStoreSelectRef = useRef(onStoreSelect);
+  const [hideNoPricing, setHideNoPricing] = useState(false);
 
   useEffect(() => {
     onStoreSelectRef.current = onStoreSelect;
@@ -55,10 +59,14 @@ export default function MapContainer({ onStoreSelect }: MapContainerProps) {
 
     mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN!;
 
+    const center = userLocation
+      ? [userLocation.lng, userLocation.lat] as [number, number]
+      : MAPBOX_CONFIG.defaultCenter;
+
     const instance = new mapboxgl.Map({
       container: mapContainer.current,
       style: MAPBOX_CONFIG.style,
-      center: MAPBOX_CONFIG.center,
+      center,
       zoom: MAPBOX_CONFIG.zoom,
       minZoom: MAPBOX_CONFIG.minZoom,
       maxZoom: MAPBOX_CONFIG.maxZoom,
@@ -88,7 +96,9 @@ export default function MapContainer({ onStoreSelect }: MapContainerProps) {
         );
         if (!res.ok) return;
         const data: Store[] = await res.json();
-        updateMarkers(data);
+        allStoresRef.current = data;
+        const visible = hideNoPricingRef.current ? data.filter(s => s.has_deals) : data;
+        updateMarkers(visible);
       } catch {
         // map still usable without store data
       }
@@ -97,21 +107,29 @@ export default function MapContainer({ onStoreSelect }: MapContainerProps) {
     instance.on("load", fetchStoresInViewport);
     instance.on("moveend", fetchStoresInViewport);
 
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        instance.flyTo({
-          center: [pos.coords.longitude, pos.coords.latitude],
-          zoom: 14,
-        });
-      },
-      () => {}
-    );
-
     return () => {
       instance.remove();
       map.current = null;
     };
-  }, [updateMarkers]);
+  }, [updateMarkers, userLocation]);
+
+  useEffect(() => {
+    hideNoPricingRef.current = hideNoPricing;
+    const stores = allStoresRef.current;
+    if (stores.length > 0) {
+      const visible = hideNoPricing ? stores.filter(s => s.has_deals) : stores;
+      updateMarkers(visible);
+    }
+  }, [hideNoPricing, updateMarkers]);
+
+  useEffect(() => {
+    if (map.current && userLocation) {
+      map.current.flyTo({
+        center: [userLocation.lng, userLocation.lat],
+        zoom: 14,
+      });
+    }
+  }, [userLocation]);
 
   return (
     <>
@@ -122,12 +140,15 @@ export default function MapContainer({ onStoreSelect }: MapContainerProps) {
             <span className="inline-block h-3 w-3 rounded-full border-2 border-white bg-green-600 shadow-sm" />
             <span className="text-zinc-600 dark:text-zinc-400">Deals</span>
           </div>
-          <div className="flex items-center gap-1.5">
-            <span className="inline-block h-3 w-3 rounded-full border-2 border-yellow-400 bg-green-600 opacity-75 shadow-sm" />
-            <span className="text-zinc-600 dark:text-zinc-400">
+          <button
+            onClick={() => setHideNoPricing(h => !h)}
+            className="flex items-center gap-1.5"
+          >
+            <span className={`inline-block h-3 w-3 rounded-full border-2 border-yellow-400 bg-green-600 shadow-sm transition-opacity ${hideNoPricing ? "opacity-25" : "opacity-75"}`} />
+            <span className={`transition-colors ${hideNoPricing ? "text-zinc-400 line-through dark:text-zinc-600" : "text-zinc-600 dark:text-zinc-400"}`}>
               No pricing
             </span>
-          </div>
+          </button>
         </div>
       </div>
     </>

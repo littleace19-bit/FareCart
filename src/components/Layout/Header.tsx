@@ -3,6 +3,7 @@ interface HeaderProps {
   onCartClick: () => void;
   onSearchClick: () => void;
   onLogoClick: () => void;
+  onMenuClick: () => void;
 }
 
 export default function Header({
@@ -10,15 +11,26 @@ export default function Header({
   onCartClick,
   onSearchClick,
   onLogoClick,
+  onMenuClick,
 }: HeaderProps) {
   return (
     <header className="flex h-14 items-center justify-between border-b border-zinc-200 bg-white px-4 dark:border-zinc-800 dark:bg-zinc-950">
-      <button onClick={onLogoClick} className="flex items-center gap-2">
-        <span className="text-xl font-bold text-green-accent">FareCart</span>
-        <span className="hidden text-sm text-zinc-500 sm:inline">
-          Bronx Grocery Savings
-        </span>
-      </button>
+      <div className="flex items-center gap-2">
+        <button
+          onClick={onMenuClick}
+          className="rounded-lg p-1.5 text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-900"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M3 12h18M3 6h18M3 18h18" />
+          </svg>
+        </button>
+        <button onClick={onLogoClick} className="flex items-center gap-2">
+          <span className="text-xl font-bold text-green-accent">FareCart</span>
+          <span className="hidden text-sm text-zinc-500 sm:inline">
+            Bronx Grocery Savings
+          </span>
+        </button>
+      </div>
       <div className="flex items-center gap-2">
         <button
           onClick={onSearchClick}

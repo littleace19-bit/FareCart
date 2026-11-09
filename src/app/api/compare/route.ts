@@ -47,16 +47,17 @@ function extractKeywords(name: string): string[] {
     .filter(w => w.length > 1 && !NOISE_WORDS.has(w) && !BRAND_WORDS.has(w));
 }
 
+function keywordPresent(kw: string, candidate: string): boolean {
+  const stem = kw.endsWith('s') ? kw.slice(0, -1) : kw;
+  return candidate.includes(kw) || candidate.includes(stem) || candidate.includes(kw + 's');
+}
+
 function scoreMatch(keywords: string[], candidateName: string): number {
   const candidate = candidateName.toLowerCase();
-  let hits = 0;
   for (const kw of keywords) {
-    const stem = kw.endsWith('s') ? kw.slice(0, -1) : kw;
-    if (candidate.includes(kw) || candidate.includes(stem) || candidate.includes(kw + 's')) {
-      hits++;
-    }
+    if (!keywordPresent(kw, candidate)) return 0;
   }
-  return keywords.length > 0 ? hits / keywords.length : 0;
+  return 1;
 }
 
 async function findMatchesForItem(item: CartItem) {
@@ -87,8 +88,7 @@ async function findMatchesForItem(item: CartItem) {
   for (const row of rows) {
     const storeId = row.store_id as string;
     const score = scoreMatch(keywords, row.name as string);
-    const minScore = keywords.length <= 2 ? 1.0 : 0.6;
-    if (score < minScore) continue;
+    if (score === 0) continue;
     const existing = perStore.get(storeId);
     if (!existing || score > existing.score || (score === existing.score && (row.price as number) < (existing.row.price as number))) {
       perStore.set(storeId, { row, score });

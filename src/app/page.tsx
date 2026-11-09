@@ -13,6 +13,13 @@ import type { CartItem } from "@/types/cart";
 import type { StoreAlternative } from "@/types/cost-benefit";
 import InstallPrompt from "@/components/PWA/InstallPrompt";
 import SavingsBanner from "@/components/Stats/SavingsBanner";
+import Sidebar from "@/components/Layout/Sidebar";
+import LocationsList from "@/components/Locations/LocationsList";
+import MySavings from "@/components/Stats/MySavings";
+import AdminDashboard from "@/components/Stats/AdminDashboard";
+import AboutPanel from "@/components/About/AboutPanel";
+import LocationPicker from "@/components/Location/LocationPicker";
+import type { UserLocation } from "@/components/Location/LocationPicker";
 import type { SearchResult } from "@/types/deal";
 
 type CartMap = Record<string, CartItem[]>;
@@ -34,11 +41,16 @@ export default function Home() {
   const [alternatives, setAlternatives] = useState<StoreAlternative[]>([]);
   const [compareLoading, setCompareLoading] = useState(false);
   const [viewingFromCompare, setViewingFromCompare] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [activeView, setActiveView] = useState("map");
+  const [isAdmin, setIsAdmin] = useState(false);
   const [stats, setStats] = useState<{
     totalSaved: number;
     tripCount: number;
     averageSavings: number;
   } | null>(null);
+  const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
+  const [showLocationPicker, setShowLocationPicker] = useState(false);
   const userCoordsRef = useRef<{ lat: number; lng: number } | null>(null);
 
   const cart = selectedStore ? (allCarts[selectedStore.id] ?? []) : [];
@@ -52,19 +64,45 @@ export default function Home() {
 
   useEffect(() => {
     fetchStats();
+    try {
+      if (localStorage.getItem("farecart-admin") === "true") setIsAdmin(true);
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("key") === "farecart-harvest-secret-2026") {
+        localStorage.setItem("farecart-admin", "true");
+        setIsAdmin(true);
+        window.history.replaceState({}, "", window.location.pathname);
+      }
+    } catch {}
   }, []);
 
+  function handleNavigate(view: string) {
+    setActiveView(view);
+    if (view === "map") {
+      goHome();
+    }
+  }
+
   useEffect(() => {
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        userCoordsRef.current = {
-          lat: pos.coords.latitude,
-          lng: pos.coords.longitude,
-        };
-      },
-      () => {}
-    );
+    try {
+      const saved = localStorage.getItem("farecart-location");
+      if (saved) {
+        const loc: UserLocation = JSON.parse(saved);
+        setUserLocation(loc);
+        userCoordsRef.current = { lat: loc.lat, lng: loc.lng };
+        return;
+      }
+    } catch {}
+    setShowLocationPicker(true);
   }, []);
+
+  function handleLocationSelect(loc: UserLocation) {
+    setUserLocation(loc);
+    userCoordsRef.current = { lat: loc.lat, lng: loc.lng };
+    setShowLocationPicker(false);
+    try {
+      localStorage.setItem("farecart-location", JSON.stringify(loc));
+    } catch {}
+  }
 
   useEffect(() => {
     try {
@@ -218,17 +256,26 @@ export default function Home() {
     setSearchOpen(false);
     setCompareOpen(false);
     setViewingFromCompare(false);
+    setActiveView("map");
   }, []);
 
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
   return (
     <div className="flex h-full flex-col">
+      <Sidebar
+        open={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+        onNavigate={handleNavigate}
+        activeView={activeView}
+        isAdmin={isAdmin}
+      />
       <Header
         cartCount={cartCount}
         onCartClick={() => setCartOpen(true)}
         onSearchClick={() => setSearchOpen(true)}
         onLogoClick={goHome}
+        onMenuClick={() => setSidebarOpen(true)}
       />
       {stats && stats.tripCount > 0 && !selectedStore && !searchOpen && !cartOpen && !compareOpen && (
         <SavingsBanner
@@ -238,7 +285,22 @@ export default function Home() {
         />
       )}
       <main className="relative flex-1">
-        <MapContainer onStoreSelect={setSelectedStore} />
+        <MapContainer onStoreSelect={setSelectedStore} userLocation={userLocation} />
+        {userLocation && !selectedStore && !searchOpen && !cartOpen && !compareOpen && activeView === "map" && (
+          <button
+            onClick={() => setShowLocationPicker(true)}
+            className="absolute top-3 left-14 z-20 flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 shadow-md transition-colors hover:bg-zinc-50 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+              <circle cx="12" cy="11" r="3" />
+            </svg>
+            {userLocation.label}
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-zinc-400">
+              <path d="M6 9l6 6 6-6" />
+            </svg>
+          </button>
+        )}
         {selectedStore && (
           <DealPanel
             key={selectedStore.id}
@@ -292,8 +354,29 @@ export default function Home() {
             onChooseStore={logSavingsDecision}
           />
         )}
+        {activeView === "locations" && (
+          <LocationsList
+            onClose={() => setActiveView("map")}
+            onSelectStore={(store) => {
+              setSelectedStore(store);
+              setActiveView("map");
+            }}
+          />
+        )}
+        {activeView === "my-savings" && (
+          <MySavings onClose={() => setActiveView("map")} />
+        )}
+        {activeView === "about" && (
+          <AboutPanel onClose={() => setActiveView("map")} />
+        )}
+        {activeView === "admin" && isAdmin && (
+          <AdminDashboard onClose={() => setActiveView("map")} />
+        )}
       </main>
       <InstallPrompt />
+      {showLocationPicker && (
+        <LocationPicker onSelect={handleLocationSelect} isModal />
+      )}
     </div>
   );
 }

@@ -64,6 +64,35 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const admin = searchParams.get('admin');
   const secret = searchParams.get('key');
+  const deviceId = searchParams.get('device');
+
+  if (deviceId) {
+    const { data, error } = await getSupabaseAdmin()
+      .from('savings_decisions')
+      .select('original_store_name, chosen_store_name, price_savings, net_savings, items_matched, item_count, created_at')
+      .eq('device_id', deviceId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      return NextResponse.json({ error: 'Failed to fetch device stats' }, { status: 500 });
+    }
+
+    const rows = data ?? [];
+    const deviceTotalSaved = rows.reduce((sum, r) => sum + Number(r.net_savings ?? r.price_savings), 0);
+
+    return NextResponse.json({
+      deviceTotalSaved: Math.round(deviceTotalSaved * 100) / 100,
+      decisions: rows.map(r => ({
+        originalStoreName: r.original_store_name,
+        chosenStoreName: r.chosen_store_name,
+        priceSavings: Number(r.price_savings),
+        netSavings: r.net_savings != null ? Number(r.net_savings) : null,
+        itemsMatched: Number(r.items_matched),
+        itemCount: Number(r.item_count),
+        date: new Date(r.created_at as string).toLocaleDateString(),
+      })),
+    });
+  }
 
   const { data, error } = await getSupabaseAdmin()
     .from('savings_decisions')
